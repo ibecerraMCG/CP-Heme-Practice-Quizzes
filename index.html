@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CP-Heme Practice Quizzes Directory</title>
+    
+    <!-- Umami Analytics Tracker -->
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="3cb2ed63-b477-4c85-a83f-7352712d49c9"></script>
+
     <style>
         /* --- CSS Variables & Themes --- */
         :root {
@@ -155,17 +159,51 @@
             flex-wrap: wrap;
         }
 
+        /* --- Live Viewer Tracker Widget --- */
+        .live-tracker {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 0 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            height: 34px;
+            font-family: monospace;
+            font-weight: bold;
+            cursor: default;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e; /* Green */
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
         /* --- Controls --- */
         .pin-btn {
             background: none;
             border: 1px solid var(--border-color);
             color: var(--text-main);
             cursor: pointer;
-            padding: 6px 10px;
+            padding: 0 10px;
             border-radius: 6px;
             font-size: 1rem;
             transition: background-color 0.2s;
             height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .pin-btn:hover {
@@ -187,7 +225,7 @@
         }
 
         select#theme-select {
-            padding: 6px 12px;
+            padding: 0 12px;
             border-radius: 6px;
             border: 1px solid var(--border-color);
             background-color: var(--bg-card);
@@ -352,8 +390,11 @@
             <h1>CP-Heme Practice Quizzes</h1>
             <div class="controls-wrapper">
                 
-                <!-- UNTOUCHED LIVE TRACKER SCRIPT -->
-                <script id="_wauc3k">var _wau = _wau || []; _wau.push(["classic", "i6qyirjrd4", "c3k"]);</script><script async src="//waust.at/c.js"></script>
+                <!-- LIVE VIEWER TRACKER (Umami API) -->
+                <div class="live-tracker" title="Active Users">
+                    <span class="live-dot"></span>
+                    <span id="live-count-display">Live: ...</span>
+                </div>
 
                 <!-- Pin Button -->
                 <button class="pin-btn pin-active" id="pin-btn" onclick="toggleHeader()" title="Pin/Unpin Header">
@@ -681,36 +722,75 @@
         const pinBtn = document.getElementById('pin-btn');
         const sectionNav = document.getElementById('section-nav');
 
+      // --- Custom Live Viewer Script using Umami API ---
+        async function fetchLiveUsers() {
+            const websiteId = '3cb2ed63-b477-4c85-a83f-7352712d49c9';
+            const apiKey = 'api_lGvz88HE8YgUBZAlmLUdqu4icYJ5aFxA'; 
+            const displayEl = document.getElementById('live-count-display');
+
+            try {
+                const url = `https://api.umami.is/v1/websites/${websiteId}/active?t=${Date.now()}`;
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers: {
+                        'x-umami-api-key': apiKey,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+                const data = await response.json();
+                
+                // Parse the exact JSON structure: {"visitors": 4}
+                const count = (data && data.visitors !== undefined) ? data.visitors : 0;
+
+                // Adjust grammar for singular vs plural
+                const viewerText = count === 1 ? 'viewer' : 'viewers';
+
+                // Display the new formatted text
+                displayEl.textContent = `Live: ${count} ${viewerText}`;
+
+            } catch (err) {
+                // Handle strict privacy blockers cleanly
+                console.warn("Umami connection blocked or failed:", err);
+                displayEl.textContent = `Live: - viewers`;
+            }
+        }
+
         function initDirectory() {
-            // Dynamically build the header navigation based on .week-title elements
+            // Build Navigation
             const weekTitles = document.querySelectorAll('.week-title');
             
             weekTitles.forEach(title => {
                 const sectionId = title.parentElement.id;
-                
                 const navBtn = document.createElement('button');
-                navBtn.textContent = title.textContent; // e.g. "Week 24"
-                
+                navBtn.textContent = title.textContent;
                 navBtn.onclick = () => {
                     document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
                 };
-                
                 sectionNav.appendChild(navBtn);
             });
 
-            // Load saved theme
+            // Theme & Pin Logic
             const savedTheme = localStorage.getItem('quizTheme') || 'dark';
             changeTheme(savedTheme);
             themeSelect.value = savedTheme;
 
-            // Load saved pin state
             const savedPinState = localStorage.getItem('headerPinned');
-            // Default to true (pinned) if not set or if set to true
             if (savedPinState === 'false') {
                 toggleHeader(false); 
             } else {
                 toggleHeader(true);
             }
+
+            // Start Live Tracker with a 2-second delay to allow the tracking script to fire first
+            setTimeout(() => {
+                fetchLiveUsers(); 
+                setInterval(fetchLiveUsers, 30000); // Update every 30s
+            }, 2000);
         }
 
         function changeTheme(themeName) {
@@ -723,12 +803,10 @@
             const newState = (typeof forceState === 'boolean') ? forceState : !isCurrentlyPinned;
 
             if (newState) {
-                // Pin
                 mainHeader.classList.remove('unpinned');
                 pinBtn.classList.add('pin-active');
                 localStorage.setItem('headerPinned', 'true');
             } else {
-                // Unpin
                 mainHeader.classList.add('unpinned');
                 pinBtn.classList.remove('pin-active');
                 localStorage.setItem('headerPinned', 'false');
