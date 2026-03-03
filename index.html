@@ -73,8 +73,7 @@
             --button-hover: #a3c5f9;
         }
 
-        /* 5. Sepia (Reading Mode) */
-        [data-theme="sepia"] {
+        /* 5. Sepia (Reading Mode) */[data-theme="sepia"] {
             --bg-body: #f4ecd8;
             --bg-card: #fdf6e3;
             --bg-header: #e4d5b7;
@@ -388,10 +387,10 @@
             <h1>CP-Heme Practice Quizzes</h1>
             <div class="controls-wrapper">
                 
-                <!-- LIVE VIEWER TRACKER (Umami API) -->
-                <div class="live-tracker" title="Active Users">
+                <!-- VIEWS TODAY TRACKER (Umami API) -->
+                <div class="live-tracker" title="Views Today (Eastern Time)">
                     <span class="live-dot"></span>
-                    <span id="live-count-display">Live: ...</span>
+                    <span id="view-count-display">Views Today: ...</span>
                 </div>
 
                 <!-- Pin Button -->
@@ -762,14 +761,38 @@
         const pinBtn = document.getElementById('pin-btn');
         const sectionNav = document.getElementById('section-nav');
 
-      // --- Custom Live Viewer Script using Umami API ---
-        async function fetchLiveUsers() {
+        // --- Custom Views Today Script using Umami API ---
+        async function fetchDailyViews() {
             const websiteId = '3cb2ed63-b477-4c85-a83f-7352712d49c9';
             const apiKey = 'api_lGvz88HE8YgUBZAlmLUdqu4icYJ5aFxA'; 
-            const displayEl = document.getElementById('live-count-display');
+            const displayEl = document.getElementById('view-count-display');
 
             try {
-                const url = `https://api.umami.is/v1/websites/${websiteId}/active?t=${Date.now()}`;
+                const now = new Date();
+                const endAt = now.getTime();
+                
+                // Get the current date in Eastern Time
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/New_York',
+                    year: 'numeric', month: 'numeric', day: 'numeric'
+                });
+                const [month, day, year] = formatter.format(now).split('/');
+                
+                // Determine the correct timezone offset for Eastern Time today (handles EST vs EDT)
+                const noonUTC = new Date(Date.UTC(year, month - 1, day, 17, 0, 0)); 
+                const offsetString = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/New_York',
+                    timeZoneName: 'shortOffset'
+                }).format(noonUTC);
+                
+                const match = offsetString.match(/GMT([+-]\d+)/);
+                const offsetHours = match ? parseInt(match[1], 10) : -5;
+                
+                // Calculate exactly 12:00 AM Eastern Time in UTC timestamp
+                const startAt = new Date(Date.UTC(year, month - 1, day, -offsetHours, 0, 0)).getTime();
+
+                // Fetch stats from Umami for today's views
+                const url = `https://api.umami.is/v1/websites/${websiteId}/stats?startAt=${startAt}&endAt=${endAt}`;
                 
                 const response = await fetch(url, {
                     method: 'GET',
@@ -784,19 +807,23 @@
 
                 const data = await response.json();
                 
-                // Parse the exact JSON structure: {"visitors": 4}
-                const count = (data && data.visitors !== undefined) ? data.visitors : 0;
-
-                // Adjust grammar for singular vs plural
-                const viewerText = count === 1 ? 'viewer' : 'viewers';
+                // Parse standard Umami stats structure looking for pageviews
+                let count = 0;
+                if (data && data.pageviews !== undefined) {
+                    if (typeof data.pageviews === 'object' && data.pageviews.value !== undefined) {
+                        count = data.pageviews.value;
+                    } else if (typeof data.pageviews === 'number') {
+                        count = data.pageviews; // Fallback structure
+                    }
+                }
 
                 // Display the new formatted text
-                displayEl.textContent = `Live: ${count} ${viewerText}`;
+                displayEl.textContent = `Views Today: ${count}`;
 
             } catch (err) {
                 // Handle strict privacy blockers cleanly
                 console.warn("Umami connection blocked or failed:", err);
-                displayEl.textContent = `Live: - viewers`;
+                displayEl.textContent = `Views Today: -`;
             }
         }
 
@@ -814,8 +841,8 @@
                 sectionNav.appendChild(navBtn);
             });
 
-            // Theme & Pin Logic
-            const savedTheme = localStorage.getItem('quizTheme') || 'dark';
+            // Theme & Pin Logic (Checking BOTH potential keys to ensure compatibility)
+            const savedTheme = localStorage.getItem('quizTheme') || localStorage.getItem('theme') || 'dark';
             changeTheme(savedTheme);
             themeSelect.value = savedTheme;
 
@@ -826,16 +853,19 @@
                 toggleHeader(true);
             }
 
-            // Start Live Tracker with a 2-second delay to allow the tracking script to fire first
+            // Start Views Tracker with a 2-second delay to allow the tracking script to fire first
             setTimeout(() => {
-                fetchLiveUsers(); 
-                setInterval(fetchLiveUsers, 30000); // Update every 30s
+                fetchDailyViews(); 
+                setInterval(fetchDailyViews, 30000); // Update every 30s
             }, 2000);
         }
 
         function changeTheme(themeName) {
             document.documentElement.setAttribute('data-theme', themeName);
+            
+            // Saving to BOTH standard keys to guarantee the quiz pages catch the update
             localStorage.setItem('quizTheme', themeName);
+            localStorage.setItem('theme', themeName); 
         }
 
         function toggleHeader(forceState) {
