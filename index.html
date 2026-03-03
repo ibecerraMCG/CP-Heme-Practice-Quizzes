@@ -762,71 +762,26 @@
         const pinBtn = document.getElementById('pin-btn');
         const sectionNav = document.getElementById('section-nav');
 
-// --- Custom Visitors Today Script using Umami API ---
+ // --- Custom Visitors Today Script using Cloudflare Proxy ---
         async function fetchDailyVisitors() {
-            const websiteId = '3cb2ed63-b477-4c85-a83f-7352712d49c9';
-            const apiKey = 'api_lGvz88HE8YgUBZAlmLUdqu4icYJ5aFxA'; 
+            // Replace the URL below with your Cloudflare Worker URL
+            const proxyUrl = 'https://umami-proxy.ianbecerra4.workers.dev/'; 
             const displayEl = document.getElementById('visitor-count-display');
 
             try {
-                const now = new Date();
-                const endAt = now.getTime();
-                
-                // Get the current date in Eastern Time
-                const formatter = new Intl.DateTimeFormat('en-US', {
-                    timeZone: 'America/New_York',
-                    year: 'numeric', month: 'numeric', day: 'numeric'
-                });
-                const[month, day, year] = formatter.format(now).split('/');
-                
-                // Determine the correct timezone offset for Eastern Time today (handles EST vs EDT)
-                const noonUTC = new Date(Date.UTC(year, month - 1, day, 17, 0, 0)); 
-                const offsetString = new Intl.DateTimeFormat('en-US', {
-                    timeZone: 'America/New_York',
-                    timeZoneName: 'shortOffset'
-                }).format(noonUTC);
-                
-                const match = offsetString.match(/GMT([+-]\d+)/);
-                const offsetHours = match ? parseInt(match[1], 10) : -5;
-                
-                // Calculate exactly 12:00 AM Eastern Time in UTC timestamp
-                const startAt = new Date(Date.UTC(year, month - 1, day, -offsetHours, 0, 0)).getTime();
-
-                // Fetch stats from Umami for today's visitors
-                const url = `https://api.umami.is/v1/websites/${websiteId}/stats?startAt=${startAt}&endAt=${endAt}`;
-                
-                const response = await fetch(url, {
-                    method: 'GET',
-                    cache: 'no-store',
-                    headers: {
-                        'x-umami-api-key': apiKey,
-                        'Accept': 'application/json'
-                    }
-                });
-
-                if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Proxy Error');
 
                 const data = await response.json();
                 
-                // Parse standard Umami stats structure: {"visitors": {"value": 10}, ...}
-                let count = 0;
-                if (data && data.visitors !== undefined) {
-                    if (typeof data.visitors === 'object' && data.visitors.value !== undefined) {
-                        count = data.visitors.value;
-                    } else if (typeof data.visitors === 'number') {
-                        count = data.visitors; // Fallback structure
-                    }
-                }
-
-                // Display the new formatted text
-                displayEl.textContent = `Visitors Today: ${count}`;
+                displayEl.textContent = `Visitors Today: ${data.visitors}`;
 
             } catch (err) {
-                // Handle strict privacy blockers cleanly
-                console.warn("Umami connection blocked or failed:", err);
+                console.warn("View counter blocked or failed:", err);
                 displayEl.textContent = `Visitors Today: -`;
             }
         }
+
         function initDirectory() {
             // Build Navigation
             const weekTitles = document.querySelectorAll('.week-title');
