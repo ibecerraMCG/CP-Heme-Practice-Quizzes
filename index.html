@@ -762,7 +762,7 @@
         const pinBtn = document.getElementById('pin-btn');
         const sectionNav = document.getElementById('section-nav');
 
-        // --- Custom Visitors Today Script using Umami API ---
+// --- Custom Visitors Today Script using Umami API ---
         async function fetchDailyVisitors() {
             const websiteId = '3cb2ed63-b477-4c85-a83f-7352712d49c9';
             const apiKey = 'api_lGvz88HE8YgUBZAlmLUdqu4icYJ5aFxA'; 
@@ -777,7 +777,7 @@
                     timeZone: 'America/New_York',
                     year: 'numeric', month: 'numeric', day: 'numeric'
                 });
-                const [month, day, year] = formatter.format(now).split('/');
+                const[month, day, year] = formatter.format(now).split('/');
                 
                 // Determine the correct timezone offset for Eastern Time today (handles EST vs EDT)
                 const noonUTC = new Date(Date.UTC(year, month - 1, day, 17, 0, 0)); 
@@ -827,7 +827,6 @@
                 displayEl.textContent = `Visitors Today: -`;
             }
         }
-
         function initDirectory() {
             // Build Navigation
             const weekTitles = document.querySelectorAll('.week-title');
